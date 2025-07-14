@@ -50,12 +50,10 @@ const AdminLogin = ({ onLoginSuccess }) => {
     setError('');
 
     try {
-      // Check admin credentials
-      if (email === process.env.REACT_APP_ADMIN_EMAIL && 
-          password === process.env.REACT_APP_ADMIN_PASSWORD) {
-        
+      // Hardcoded admin credentials
+      if (email === 'hraj48147@gmail.com' && password === 'Harsh@1234') {
         const mockAdminUser = {
-          id: 'admin-user',
+          id: '11111111-1111-1111-1111-111111111111',
           email: email,
           role: 'admin'
         };
@@ -66,11 +64,18 @@ const AdminLogin = ({ onLoginSuccess }) => {
         };
 
         localStorage.setItem('admin_session', JSON.stringify(sessionData));
-        navigate('/adminDashboard');
+        console.log('Session stored:', sessionData); // Debug log
+        
+        // Use onLoginSuccess callback if provided
+        if (onLoginSuccess) {
+          onLoginSuccess();
+        } else {
+          navigate('/adminDashboard');
+        }
         return;
       }
 
-      setError('Invalid credentials');
+      setError('Invalid admin credentials');
     } catch (error) {
       console.error('Login error:', error);
       setError('An error occurred during login');
