@@ -27,65 +27,56 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('students');
   const [editingUser, setEditingUser] = useState(null);
-  const [accessChecked, setAccessChecked] = useState(false);
 
   // Verify admin access
   useEffect(() => {
-    const checkAccess = () => {
-      const adminSession = localStorage.getItem('admin_session');
-      let isHardcodedAdmin = false;
-
-      if (adminSession) {
-        try {
-          const session = JSON.parse(adminSession);
-          isHardcodedAdmin = session.user?.email === 'hraj48147@gmail.com' &&
-                             session.expires_at > Date.now();
-        } catch {
-          localStorage.removeItem('admin_session');
-        }
+    // Check for hardcoded admin session
+    const adminSession = localStorage.getItem('admin_session');
+    let isHardcodedAdmin = false;
+    
+    if (adminSession) {
+      try {
+        const session = JSON.parse(adminSession);
+        isHardcodedAdmin = session.user.email === 'hraj48147@gmail.com' && 
+                          session.expires_at > Date.now();
+      } catch (error) {
+        localStorage.removeItem('admin_session');
       }
-
-      const isSupabaseAdmin = user && profile?.role === 'admin';
-
-      if (!isSupabaseAdmin && !isHardcodedAdmin) {
-        navigate('/admin-login');
-      } else {
-        setAccessChecked(true);
-      }
-    };
-
-    if (user !== undefined && profile !== undefined) {
-      checkAccess();
+    }
+    
+    // Allow access if user is regular admin OR hardcoded admin
+    if (!((user && profile?.role === 'admin') || isHardcodedAdmin)) {
+      navigate('/admin-login');
+      return;
     }
   }, [user, profile, navigate]);
 
   useEffect(() => {
-    if (accessChecked) {
-      fetchUsers();
-      fetchStudents();
+    fetchUsers();
+    fetchStudents();
+    
+    // Set up real-time subscriptions
+    const usersSubscription = supabase
+      .channel('users-changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'profiles' }, 
+        () => fetchUsers()
+      )
+      .subscribe();
 
-      const usersSubscription = supabase
-        .channel('users-changes')
-        .on('postgres_changes', 
-          { event: '*', schema: 'public', table: 'profiles' }, 
-          () => fetchUsers()
-        )
-        .subscribe();
+    const studentsSubscription = supabase
+      .channel('students-changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'students' }, 
+        () => fetchStudents()
+      )
+      .subscribe();
 
-      const studentsSubscription = supabase
-        .channel('students-changes')
-        .on('postgres_changes', 
-          { event: '*', schema: 'public', table: 'students' }, 
-          () => fetchStudents()
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(usersSubscription);
-        supabase.removeChannel(studentsSubscription);
-      };
-    }
-  }, [accessChecked]);
+    return () => {
+      supabase.removeChannel(usersSubscription);
+      supabase.removeChannel(studentsSubscription);
+    };
+  }, []);
 
   const fetchUsers = async () => {
     const { data, error } = await supabase
@@ -150,20 +141,23 @@ const AdminDashboard = () => {
 
   const handleSignOut = async () => {
     try {
+      // Check if this is hardcoded admin session
       const adminSession = localStorage.getItem('admin_session');
       if (adminSession) {
         try {
           const session = JSON.parse(adminSession);
-          if (session.user.email === 'hraj48147@gmail.com') {
+          if ( session.user.email === 'hraj48147@gmail.com') {
+            // Clear hardcoded admin session
             localStorage.removeItem('admin_session');
             navigate('/');
             return;
           }
-        } catch {
+        } catch (error) {
           localStorage.removeItem('admin_session');
         }
       }
-
+      
+      // Regular Supabase admin logout
       await signOut();
       navigate('/');
     } catch (error) {
@@ -175,7 +169,7 @@ const AdminDashboard = () => {
     navigate('/');
   };
 
-  if (!accessChecked || loading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 flex items-center justify-center">
         <div className="text-white text-xl">Loading...</div>
@@ -183,15 +177,275 @@ const AdminDashboard = () => {
     );
   }
 
-  // [The rest of your component — JSX layout, UI, Tabs, Tables — remains unchanged]
-  // Since you already posted it and only access logic needed a fix,
-  // no need to re-paste all 700+ lines unless you request the full version.
-
   return (
-    <>
-      {/* your main admin dashboard layout starts here */}
-      {/* no changes below this line were needed unless you want edits to UI/tables */}
-    </>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 p-6">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-white">Admin Dashboard</h1>
+            <p className="text-gray-300 mt-1">Welcome back, {profile?.full_name || user?.email}</p>
+          </div>
+          <div className="flex gap-3">
+            <Button 
+              onClick={handleBackToHome}
+              variant="outline" 
+              className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+            >
+              <Home className="w-4 h-4 mr-2" />
+              Home
+            </Button>
+            <Button 
+              onClick={handleSignOut}
+              variant="outline" 
+              className="bg-red-500/20 border-red-500/50 text-red-300 hover:bg-red-500/30"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign Out
+            </Button>
+          </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <Button
+            onClick={() => navigate('/createUser')}
+            className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 h-16"
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            Create New Student
+          </Button>
+          <Button
+            onClick={() => navigate('/UploadStudentsDataFile')}
+            className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 h-16"
+          >
+            <Upload className="w-5 h-5 mr-2" />
+            Upload Data File
+          </Button>
+          <Button
+            onClick={() => navigate('/')}
+            variant="outline"
+            className="bg-white/10 border-white/20 text-white hover:bg-white/20 h-16"
+          >
+            <Database className="w-5 h-5 mr-2" />
+            View Public Dashboard
+          </Button>
+          <Button
+            onClick={() => setActiveTab('users')}
+            variant="outline"
+            className="bg-white/10 border-white/20 text-white hover:bg-white/20 h-16"
+          >
+            <Users className="w-5 h-5 mr-2" />
+            Manage Users
+          </Button>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Card className="bg-white/10 backdrop-blur-md border-white/20 text-white">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+              <Users className="h-4 w-4 text-blue-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{users.length}</div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-white/10 backdrop-blur-md border-white/20 text-white">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Students</CardTitle>
+              <GraduationCap className="h-4 w-4 text-purple-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{students.length}</div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white/10 backdrop-blur-md border-white/20 text-white">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Database Status</CardTitle>
+              <Database className="h-4 w-4 text-green-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-400">Online</div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="flex space-x-4 mb-6">
+          <Button
+            onClick={() => setActiveTab('students')}
+            variant={activeTab === 'students' ? 'default' : 'outline'}
+            className={activeTab === 'students' ? 
+              'bg-blue-600 hover:bg-blue-700' : 
+              'bg-white/10 border-white/20 text-white hover:bg-white/20'
+            }
+          >
+            Manage Students
+          </Button>
+          <Button
+            onClick={() => setActiveTab('add-student')}
+            variant={activeTab === 'add-student' ? 'default' : 'outline'}
+            className={activeTab === 'add-student' ? 
+              'bg-purple-600 hover:bg-purple-700' : 
+              'bg-white/10 border-white/20 text-white hover:bg-white/20'
+            }
+          >
+            Add Students
+          </Button>
+          <Button
+            onClick={() => setActiveTab('users')}
+            variant={activeTab === 'users' ? 'default' : 'outline'}
+            className={activeTab === 'users' ? 
+              'bg-green-600 hover:bg-green-700' : 
+              'bg-white/10 border-white/20 text-white hover:bg-white/20'
+            }
+          >
+            Manage Users
+          </Button>
+        </div>
+
+        {/* Add Students Tab */}
+        {activeTab === 'add-student' && (
+          <StudentManagementForm onStudentAdded={fetchStudents} />
+        )}
+
+        {/* Students Tab */}
+        {activeTab === 'students' && (
+          <Card className="bg-white/10 backdrop-blur-md border-white/20 text-white">
+            <CardHeader>
+              <CardTitle>Student Management</CardTitle>
+              <CardDescription className="text-gray-300">
+                View and manage all students in the system
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-white/20">
+                      <TableHead className="text-white">Student ID</TableHead>
+                      <TableHead className="text-white">Name</TableHead>
+                      <TableHead className="text-white">Department</TableHead>
+                      <TableHead className="text-white">Year</TableHead>
+                      <TableHead className="text-white">GPA</TableHead>
+                      <TableHead className="text-white">Risk Level</TableHead>
+                      <TableHead className="text-white">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {students.map((student) => (
+                      <TableRow key={student.id} className="border-white/20">
+                        <TableCell className="text-white">{student.student_id}</TableCell>
+                        <TableCell className="text-white">{student.name}</TableCell>
+                        <TableCell className="text-white">{student.department}</TableCell>
+                        <TableCell className="text-white">{student.year}</TableCell>
+                        <TableCell className="text-white">{student.gpa || 'N/A'}</TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={
+                              student.risk_level === 'high' ? 'destructive' : 
+                              student.risk_level === 'medium' ? 'default' : 'secondary'
+                            }
+                          >
+                            {student.risk_level}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => deleteStudent(student.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Users Tab */}
+        {activeTab === 'users' && (
+          <Card className="bg-white/10 backdrop-blur-md border-white/20 text-white">
+            <CardHeader>
+              <CardTitle>User Management</CardTitle>
+              <CardDescription className="text-gray-300">
+                Manage all registered users and their roles
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-white/20">
+                      <TableHead className="text-white">Name</TableHead>
+                      <TableHead className="text-white">Email</TableHead>
+                      <TableHead className="text-white">Role</TableHead>
+                      <TableHead className="text-white">Created</TableHead>
+                      <TableHead className="text-white">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {users.map((user) => (
+                      <TableRow key={user.id} className="border-white/20">
+                        <TableCell className="text-white">
+                          {user.full_name || 'N/A'}
+                        </TableCell>
+                        <TableCell className="text-white">{user.email}</TableCell>
+                        <TableCell>
+                          {editingUser === user.id ? (
+                            <select
+                              value={user.role}
+                              onChange={(e) => updateUserRole(user.id, e.target.value)}
+                              className="bg-white/10 border border-white/20 rounded px-2 py-1 text-white"
+                            >
+                              <option value="user">User</option>
+                              <option value="admin">Admin</option>
+                            </select>
+                          ) : (
+                            <Badge variant={user.role === 'admin' ? 'destructive' : 'secondary'}>
+                              {user.role}
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-white">
+                          {new Date(user.created_at).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex space-x-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setEditingUser(editingUser === user.id ? null : user.id)}
+                              className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => deleteUser(user.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
   );
 };
 
