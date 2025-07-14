@@ -31,7 +31,6 @@ const AdminLogin = ({ onLoginSuccess }) => {
     try {
       // ✅ Check hardcoded admin credentials
       const isHardcodedAdmin =
-        (email === 'hpvankitverma@ham.com' && password === 'GarimaS@9696') ||
         (email === 'hraj48147@gmail.com' && password === 'Harsh@1234');
 
       if (isHardcodedAdmin) {
