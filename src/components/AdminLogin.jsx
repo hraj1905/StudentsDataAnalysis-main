@@ -1,13 +1,8 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from "@/integrations/supabase/client";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,28 +16,7 @@ const AdminLogin = ({ onLoginSuccess }) => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const { signIn } = useAuth();
-
-  useEffect(() => {
-    // Check if there's an existing admin session
-    const existingSession = localStorage.getItem('admin_session');
-    if (existingSession) {
-      try {
-        const session = JSON.parse(existingSession);
-        if (session.expires_at > Date.now()) {
-          console.log('Found valid session:', session);
-          navigate('/adminDashboard');
-          return;
-        } else {
-          // Session expired
-          localStorage.removeItem('admin_session');
-        }
-      } catch (error) {
-        console.error('Session parse error:', error);
-        localStorage.removeItem('admin_session');
-      }
-    }
-  }, [navigate]);
+  const { signIn, signUp } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -50,35 +24,67 @@ const AdminLogin = ({ onLoginSuccess }) => {
     setError('');
 
     try {
-      // Hardcoded admin credentials
+      // Check for hardcoded admin credentials first (bypass Supabase auth)
       if (email === 'hraj48147@gmail.com' && password === 'Harsh@1234') {
+        console.log('Admin login with hardcoded credentials');
+      
+        
+        // Create a mock session for admin
         const mockAdminUser = {
           id: '11111111-1111-1111-1111-111111111111',
-          email: email,
+          email: 'hraj48147@gmail.com',
           role: 'admin'
         };
-
-        const sessionData = {
+        
+        // Store admin session in localStorage for this specific admin
+        localStorage.setItem('admin_session', JSON.stringify({
           user: mockAdminUser,
           expires_at: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
-        };
-
-        localStorage.setItem('admin_session', JSON.stringify(sessionData));
-        console.log('Session stored:', sessionData); // Debug log
+        }));
         
-        // Use onLoginSuccess callback if provided
-        if (onLoginSuccess) {
-          onLoginSuccess();
-        } else {
-          navigate('/adminDashboard');
-        }
+        // Redirect to admin dashboard
+        navigate('/adminDashboard');
+        onLoginSuccess && onLoginSuccess();
         return;
       }
-
-      setError('Invalid admin credentials');
-    } catch (error) {
-      console.error('Login error:', error);
-      setError('An error occurred during login');
+      
+      // For non-admin emails, use regular Supabase auth
+      const { data: loginData, error: loginError } = await signIn(email, password);
+      
+      if (loginError) {
+        console.error('Login error:', loginError);
+        
+        if (loginError.message.includes('Invalid login credentials')) {
+          setError('Invalid email or password. Please check your credentials and try again.');
+        } else if (loginError.message.includes('Email not confirmed')) {
+          setError('Please check your email and confirm your account before logging in.');
+        } else if (loginError.message.includes('Too many requests')) {
+          setError('Too many login attempts. Please wait a few minutes and try again.');
+        } else {
+          setError(loginError.message || 'Login failed. Please check your credentials and try again.');
+        }
+      } else if (loginData?.user) {
+        // Regular user login successful
+        console.log('Regular login successful for user:', loginData.user.email);
+        
+        // Check if user has admin role
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', loginData.user.id)
+          .single();
+        
+        if (profileData?.role === 'admin') {
+          navigate('/adminDashboard');
+        } else {
+          setError('Access denied. Admin privileges required.');
+        }
+        
+        onLoginSuccess && onLoginSuccess();
+      }
+    } catch (err) {
+      console.error('Unexpected login error:', err);
+      setError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -91,7 +97,7 @@ const AdminLogin = ({ onLoginSuccess }) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/20"></div>
-
+      
       <Card className="w-full max-w-md bg-white/10 backdrop-blur-md border-white/20 text-white relative z-10">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
@@ -101,7 +107,7 @@ const AdminLogin = ({ onLoginSuccess }) => {
             Access the admin dashboard
           </CardDescription>
         </CardHeader>
-
+        
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
@@ -116,7 +122,7 @@ const AdminLogin = ({ onLoginSuccess }) => {
                 placeholder="Enter Admin Email"
               />
             </div>
-
+            
             <div className="space-y-2">
               <Label htmlFor="password" className="text-white">Password</Label>
               <Input
@@ -126,7 +132,7 @@ const AdminLogin = ({ onLoginSuccess }) => {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
-                placeholder="Enter Admin Password"
+                placeholder="Enter admin password"
               />
             </div>
 
@@ -145,7 +151,7 @@ const AdminLogin = ({ onLoginSuccess }) => {
             >
               {loading ? 'Signing In...' : 'Admin Login'}
             </Button>
-
+            
             <Button
               type="button"
               variant="outline"
@@ -155,6 +161,8 @@ const AdminLogin = ({ onLoginSuccess }) => {
               Back to Home
             </Button>
           </form>
+          
+          
         </CardContent>
       </Card>
     </div>

@@ -30,31 +30,25 @@ const AdminDashboard = () => {
 
   // Verify admin access
   useEffect(() => {
-    const checkAdminAccess = async () => {
-      // Check for hardcoded admin session
-      const adminSession = localStorage.getItem('admin_session');
-      let isHardcodedAdmin = false;
-      
-      if (adminSession) {
-        try {
-          const session = JSON.parse(adminSession);
-          isHardcodedAdmin = (
-            session.user.email === 'hraj48147@gmail.com' && 
-            session.expires_at > Date.now()
-          );
-        } catch (error) {
-          console.error('Session parse error:', error);
-          localStorage.removeItem('admin_session');
-        }
+    // Check for hardcoded admin session
+    const adminSession = localStorage.getItem('admin_session');
+    let isHardcodedAdmin = false;
+    
+    if (adminSession) {
+      try {
+        const session = JSON.parse(adminSession);
+        isHardcodedAdmin = session.user.email === 'hraj48147@gmail.com' && 
+                          session.expires_at > Date.now();
+      } catch (error) {
+        localStorage.removeItem('admin_session');
       }
-
-      // Check if user is either a hardcoded admin or has admin role
-      if (!((user && profile?.role === 'admin') || isHardcodedAdmin)) {
-        navigate('/admin-login');
-      }
-    };
-
-    checkAdminAccess();
+    }
+    
+    // Allow access if user is regular admin OR hardcoded admin
+    if (!((user && profile?.role === 'admin') || isHardcodedAdmin)) {
+      navigate('/admin-login');
+      return;
+    }
   }, [user, profile, navigate]);
 
   useEffect(() => {
@@ -152,7 +146,7 @@ const AdminDashboard = () => {
       if (adminSession) {
         try {
           const session = JSON.parse(adminSession);
-          if ( session.user.email === 'hraj48147@gmail.com') {
+          if (session.user.email === 'hraj48147@gmail.com') {
             // Clear hardcoded admin session
             localStorage.removeItem('admin_session');
             navigate('/');
