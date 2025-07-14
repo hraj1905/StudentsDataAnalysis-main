@@ -105,7 +105,7 @@ const AppContent = () => {
             if (adminSession) {
               try {
                 const session = JSON.parse(adminSession);
-                isHardcodedAdmin = session.user.email === 'hpvankitverma@ham.com' && 
+                isHardcodedAdmin = session.user.email === 'hraj48147@gmail.com' && 
                                   session.expires_at > Date.now();
               } catch (error) {
                 localStorage.removeItem('admin_session');
