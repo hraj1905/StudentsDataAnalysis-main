@@ -101,8 +101,8 @@ const Sidebar = ({ activeSection, setActiveSection }) => {
               <User size={20} className="text-white" />
             </div>
             <div>
-              <p className="text-sm font-medium text-white">Er.Ankit Verma</p>
-              <p className="text-xs text-gray-400">Academic Advisor</p>
+              <p className="text-sm font-medium text-white">Harsh Raj</p>
+              <p className="text-xs text-gray-400">Developer</p>
             </div>
           </div>
         </div>
