@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -23,6 +23,27 @@ const AdminLogin = ({ onLoginSuccess }) => {
 
   const { signIn } = useAuth();
 
+  useEffect(() => {
+    // Check if there's an existing admin session
+    const existingSession = localStorage.getItem('admin_session');
+    if (existingSession) {
+      try {
+        const session = JSON.parse(existingSession);
+        if (session.expires_at > Date.now()) {
+          console.log('Found valid session:', session);
+          navigate('/adminDashboard');
+          return;
+        } else {
+          // Session expired
+          localStorage.removeItem('admin_session');
+        }
+      } catch (error) {
+        console.error('Session parse error:', error);
+        localStorage.removeItem('admin_session');
+      }
+    }
+  }, [navigate]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -42,17 +63,27 @@ const AdminLogin = ({ onLoginSuccess }) => {
           role: 'admin'
         };
 
-        localStorage.setItem(
-          'admin_session',
-          JSON.stringify({
-            user: mockAdminUser,
-            expires_at: Date.now() + 24 * 60 * 60 * 1000
-          })
-        );
+        const sessionData = {
+          user: mockAdminUser,
+          expires_at: Date.now() + (24 * 60 * 60 * 1000) // 24 hours from now
+        };
 
-        navigate('/adminDashboard');
-        onLoginSuccess && onLoginSuccess();
-        return;
+        try {
+          localStorage.setItem('admin_session', JSON.stringify(sessionData));
+          console.log('Session stored:', sessionData); // Debug log
+          
+          // Add a small delay before navigation to ensure storage is complete
+          setTimeout(() => {
+            onLoginSuccess && onLoginSuccess();
+            navigate('/adminDashboard');
+          }, 100);
+          
+          return;
+        } catch (storageError) {
+          console.error('Storage error:', storageError);
+          setError('Failed to store session. Please try again.');
+          return;
+        }
       }
 
       // 🔐 Supabase login for non-hardcoded users
