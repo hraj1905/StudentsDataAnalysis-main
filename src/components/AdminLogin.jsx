@@ -50,79 +50,30 @@ const AdminLogin = ({ onLoginSuccess }) => {
     setError('');
 
     try {
-      // ✅ Check hardcoded admin credentials
-      const isHardcodedAdmin =
-        (email === 'hraj48147@gmail.com' && password === 'Harsh@1234');
-
-      if (isHardcodedAdmin) {
-        console.log('Admin login with hardcoded credentials');
-
+      // Check admin credentials
+      if (email === process.env.REACT_APP_ADMIN_EMAIL && 
+          password === process.env.REACT_APP_ADMIN_PASSWORD) {
+        
         const mockAdminUser = {
-          id: '11111111-1111-1111-1111-111111111111',
+          id: 'admin-user',
           email: email,
           role: 'admin'
         };
 
         const sessionData = {
           user: mockAdminUser,
-          expires_at: Date.now() + (24 * 60 * 60 * 1000) // 24 hours from now
+          expires_at: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
         };
 
-        try {
-          localStorage.setItem('admin_session', JSON.stringify(sessionData));
-          console.log('Session stored:', sessionData); // Debug log
-          
-          // Add a small delay before navigation to ensure storage is complete
-          setTimeout(() => {
-            onLoginSuccess && onLoginSuccess();
-            navigate('/adminDashboard');
-          }, 100);
-          
-          return;
-        } catch (storageError) {
-          console.error('Storage error:', storageError);
-          setError('Failed to store session. Please try again.');
-          return;
-        }
+        localStorage.setItem('admin_session', JSON.stringify(sessionData));
+        navigate('/adminDashboard');
+        return;
       }
 
-      // 🔐 Supabase login for non-hardcoded users
-      const { data: loginData, error: loginError } = await signIn(email, password);
-
-      if (loginError) {
-        console.error('Login error:', loginError);
-
-        if (loginError.message.includes('Invalid login credentials')) {
-          setError('Invalid email or password. Please check your credentials and try again.');
-        } else if (loginError.message.includes('Email not confirmed')) {
-          setError('Please confirm your email before logging in.');
-        } else if (loginError.message.includes('Too many requests')) {
-          setError('Too many attempts. Try again later.');
-        } else {
-          setError(loginError.message || 'Login failed. Try again.');
-        }
-      } else if (loginData?.user) {
-        console.log('Supabase login successful:', loginData.user.email);
-
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', loginData.user.id)
-          .single();
-
-        if (profileError) {
-          console.error('Profile fetch error:', profileError);
-          setError('Failed to verify user role. Contact support.');
-        } else if (profileData?.role === 'admin') {
-          navigate('/adminDashboard');
-          onLoginSuccess && onLoginSuccess();
-        } else {
-          setError('Access denied. Admin privileges required.');
-        }
-      }
-    } catch (err) {
-      console.error('Unexpected login error:', err);
-      setError('An unexpected error occurred. Please try again.');
+      setError('Invalid credentials');
+    } catch (error) {
+      console.error('Login error:', error);
+      setError('An error occurred during login');
     } finally {
       setLoading(false);
     }
