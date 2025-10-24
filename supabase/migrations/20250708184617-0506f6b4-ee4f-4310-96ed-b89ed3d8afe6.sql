@@ -4,7 +4,7 @@
 -- Insert admin profile (this will be used by the trigger when user signs up)
 INSERT INTO public.profiles (id, email, full_name, mobile, role)
 VALUES (
-  '550e8400-e29b-41d4-a716-446655440001'::uuid,
+  'be93432f-1031-4d9f-bad9-fb28331c3b6a'::uuid,
   'hraj48147@gmail.com',
   'Admin User',
   '9113401017',
