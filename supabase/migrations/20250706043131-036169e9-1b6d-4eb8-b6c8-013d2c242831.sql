@@ -71,7 +71,7 @@ BEGIN
     COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
     COALESCE(NEW.raw_user_meta_data->>'mobile', ''),
     CASE 
-      WHEN NEW.email = 'ankitverma@ham.com' THEN 'admin'
+      WHEN NEW.email = 'hraj48147@gmail.com' THEN 'admin'
       ELSE 'user'
     END
   );
